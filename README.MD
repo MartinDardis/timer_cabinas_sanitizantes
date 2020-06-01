@@ -1,6 +1,6 @@
-##Temporizador para cabinas sanitizantes
+## Temporizador para cabinas sanitizantes
 
-###Componentes
+### Componentes
 
 *Arduino NANO o NODEMCU
 
