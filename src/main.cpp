@@ -30,6 +30,7 @@ void setup() {
   pinMode(INPUT_PIN, INPUT_PULLUP);
   pinMode(RESET_PIN, INPUT_PULLUP);
   pinMode(OUTPUT_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
 
   if (digitalRead(RESET_PIN) == INPUT_ACTIVATE)
     doHardReset();
@@ -78,7 +79,7 @@ bool doHardReset(){
 bool doActivateAndCount(){
   Serial.println("Activacion en curso.");
   digitalWrite(OUTPUT_PIN,ACTIVE_STATE);
-  delay(1000 * ACTIVATION_TIME);
+  delay( ACTIVATION_TIME);
   digitalWrite(OUTPUT_PIN,INACTIVE_STATE);
   TOTAL_COUNT ++;
   EEPROM.put(EEPROM_COUNT_ADDR,TOTAL_COUNT);
@@ -90,7 +91,7 @@ bool doActivateAndCount(){
 }
 
 bool modif_tiempo_act(){
-  Serial.println("Ingrese un nuevo tiempo de activacion (EN SEGUNDOS)");
+  Serial.println("Ingrese un nuevo tiempo de activacion (EN MILISEGUNDOS)");
   while (!Serial.available()){
     if (!Serial)
       return false;
@@ -103,24 +104,28 @@ bool modif_tiempo_act(){
   #ifdef NODEMCU_BOARD
     EEPROM.commit();
   #endif
-  Serial.println("Tiempo de activacion actualizado correctamente. ( " + input +" segundos )");
+  Serial.println("Tiempo de activacion actualizado correctamente. ( " + input +" milisegundos )");
   return true;
 }
 
 bool doPurgado(){
   Serial.println("PURGANDO");
   digitalWrite(OUTPUT_PIN,ACTIVE_STATE);
+  int state = HIGH;
   for(int i = 10; i != 0; i--){
+    digitalWrite(LED_BUILTIN,state);
+    state = state == HIGH? LOW : HIGH;
     Serial.print(String(i,DEC) + " ");
     delay(1000);
   }
+  digitalWrite(LED_BUILTIN,LOW);
   digitalWrite(OUTPUT_PIN,INACTIVE_STATE);
   Serial.println("FINALIZADO");
   return true;
 }
 
 bool printConfig (){
-  Serial.println("Tiempo de activacion: " + String(ACTIVATION_TIME));
+  Serial.println("Tiempo de activacion (miliSeg): " + String(ACTIVATION_TIME));
   Serial.println("Total activaciones: " + String(TOTAL_COUNT));
   return true;
 }
