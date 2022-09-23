@@ -6,16 +6,16 @@
 #include <EEPROM.h>
 #include "SerialInterface.h"
 
-unsigned int ACTIVATION_TIME = DEFAULT_ACTIVATION_TIME;
 unsigned long TOTAL_COUNT = 0;
 bool SERIAL_CONNECTED = false;
+bool running = false;
+unsigned long startMillis = 0;
 
 bool printConfig();
-bool modif_tiempo_act();
 bool doPurgado();
-bool doHardReset();
 bool doActivateAndCount();
-bool printSystemInfo();
+bool doHardReset();
+bool isReallyButtonPressed();
 
 serial_menu_t* SERIAL_MENU;
 
@@ -32,25 +32,23 @@ void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
 
-  if (digitalRead(RESET_PIN) == INPUT_ACTIVATE)
+  if (digitalRead(RESET_PIN) == INPUT_ACTIVATE){
     doHardReset();
-  EEPROM.get(EEPROM_TIME_ADDR, ACTIVATION_TIME);
+  }
   EEPROM.get(EEPROM_COUNT_ADDR,TOTAL_COUNT);
 
   SERIAL_MENU= new_menu();
   add_menu_entry(SERIAL_MENU,"Ver parametros actual",printConfig);
-  add_menu_entry(SERIAL_MENU,"Nueva activacion temporizada",doActivateAndCount);
-  add_menu_entry(SERIAL_MENU,"Modif. tiempo de activacion",modif_tiempo_act);
   add_menu_entry(SERIAL_MENU,"Restablecer config de fabrica",doHardReset);
   add_menu_entry(SERIAL_MENU,"Purgado",doPurgado);
-  if (DEBUG)
-    add_menu_entry(SERIAL_MENU,"Info. sistema",printSystemInfo);
-
 }
 
 void loop() {
-  if (digitalRead(INPUT_PIN) == INPUT_ACTIVATE)
-    doActivateAndCount();
+  if (digitalRead(INPUT_PIN) == INPUT_ACTIVATE){
+    if ( isReallyButtonPressed() ){
+      doActivateAndCount(); 
+    }
+  }
   if (Serial){
     if (!SERIAL_CONNECTED){
       print_serial_menu(SERIAL_MENU);
@@ -65,9 +63,7 @@ void loop() {
 
 bool doHardReset(){
     Serial.println("Restaurando...");
-    EEPROM.put(EEPROM_TIME_ADDR,DEFAULT_ACTIVATION_TIME);
     EEPROM.put(EEPROM_COUNT_ADDR,0);
-    ACTIVATION_TIME = DEFAULT_ACTIVATION_TIME;
     TOTAL_COUNT = 0;
     #ifdef NODEMCU_BOARD
       EEPROM.commit();
@@ -78,33 +74,24 @@ bool doHardReset(){
 
 bool doActivateAndCount(){
   Serial.println("Activacion en curso.");
-  digitalWrite(OUTPUT_PIN,ACTIVE_STATE);
-  delay( ACTIVATION_TIME);
-  digitalWrite(OUTPUT_PIN,INACTIVE_STATE);
-  TOTAL_COUNT ++;
-  EEPROM.put(EEPROM_COUNT_ADDR,TOTAL_COUNT);
+  if ( ! running ){
+    digitalWrite(OUTPUT_PIN,ACTIVE_STATE);
+    startMillis = millis();
+    running = true;
+    digitalWrite(LED_BUILTIN,HIGH);
+  } else {
+    digitalWrite(OUTPUT_PIN,INACTIVE_STATE);
+    running = false;
+    long elapsed = ( millis() - startMillis ) / 1000;
+    TOTAL_COUNT = TOTAL_COUNT + elapsed;
+    EEPROM.put(EEPROM_COUNT_ADDR,TOTAL_COUNT);
+    digitalWrite(LED_BUILTIN,LOW);
+  }
   #ifdef NODEMCU_BOARD
     EEPROM.commit();
   #endif
   Serial.println("Activacion finalizada");
-  return true;
-}
-
-bool modif_tiempo_act(){
-  Serial.println("Ingrese un nuevo tiempo de activacion (EN MILISEGUNDOS)");
-  while (!Serial.available()){
-    if (!Serial)
-      return false;
-  }
-  String input = Serial.readString();
-  if (input.length() < 1)
-    return false;
-  ACTIVATION_TIME = input.toInt();
-  EEPROM.put(EEPROM_TIME_ADDR,ACTIVATION_TIME);
-  #ifdef NODEMCU_BOARD
-    EEPROM.commit();
-  #endif
-  Serial.println("Tiempo de activacion actualizado correctamente. ( " + input +" milisegundos )");
+  delay(PUSH_DELAY_MS);
   return true;
 }
 
@@ -125,11 +112,15 @@ bool doPurgado(){
 }
 
 bool printConfig (){
-  Serial.println("Tiempo de activacion (miliSeg): " + String(ACTIVATION_TIME));
-  Serial.println("Total activaciones: " + String(TOTAL_COUNT));
+  Serial.println("Tiempo total activado (seg): " + String(TOTAL_COUNT));
   return true;
 }
 
-bool printSystemInfo(){
-  return true;
+bool isReallyButtonPressed(){
+  bool result = true;
+  for(int i=0; i < 10; i++ ){
+    result = result && ( digitalRead(INPUT_PIN) == INPUT_ACTIVATE );
+    delay(50);
+  }
+  return result;
 }

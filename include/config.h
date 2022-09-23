@@ -22,7 +22,6 @@
 #endif
 
 #define SERIAL_SPEED 115200
-#define DEFAULT_ACTIVATION_TIME 3000 //IN MILISECONDS
 
 #define ACTIVE_STATE LOW
 #define INACTIVE_STATE HIGH
@@ -30,6 +29,7 @@
 #define INPUT_ACTIVATE LOW
 
 #define DEBUG false
+#define PUSH_DELAY_MS 1000
 
 const int EEPROM_TIME_ADDR = 00; //First position of EEMPROM
 const int EEPROM_COUNT_ADDR = 10;
